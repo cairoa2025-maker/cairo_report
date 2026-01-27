@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تقارير المتغيرات المكانية لمحافظة القاهرة</title>
+    <title>تقرير تلخيصي بالمركز مع القانونية - واجهة احترافية</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Select2 -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Cairo',sans-serif; }
         body { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; padding:20px; }
@@ -41,9 +41,11 @@
 </head>
 <body>
 <div class="app">
-    <h1 class="title"><i class="fas fa-chart-bar"></i> تقارير المتغيرات المكانية لمحافظة القاهرة</h1>
+    <h1 class="title"><i class="fas fa-chart-bar"></i> تقرير تلخيصي بالمركز مع القانونية</h1>
+
     <label>اختر ملف الإكسل</label>
     <input type="file" id="excelFile" accept=".xlsx,.xls">
+
     <div class="filters">
         <div>
             <label>تاريخ البداية</label>
@@ -139,6 +141,7 @@
             </select>
         </div>
     </div>
+
     <div class="buttons">
         <button class="btn" id="processBtn" disabled>عرض التقرير</button>
         <button class="btn" id="exportSummaryBtn" disabled>تصدير الملخص</button>
@@ -147,7 +150,9 @@
             تصدير إلى KML
         </button>
     </div>
+
     <div class="message" id="message"></div>
+
     <table id="summaryTable">
         <thead>
             <tr>
@@ -183,32 +188,13 @@ const ALL_AHYAA = [
     "حى الاميريه","حى 15 مايو","حى غرب","حى باب الشعريه","حى شبرا",
     "حى الازبكيه","حى الموسكى","حى عابدين"
 ];
-
 const ALL_MOJTM3AT = [
     "القاهرة الجديدة","بدر","الشروق","العاصمة الادارية الجديدة","مدينة 15 مايو",
     "حدائق العاصمة","ظهير صحراوى محافظة القاهرة","ظهير هيئة المجتمعات العمراني"
 ];
 
 // ------------------------------------------------------------------
-// دوال مساعدة
-// ------------------------------------------------------------------
-function normalizeText(text) {
-    if (!text || typeof text !== 'string') return '';
-    return text
-        .replace(/[\u0649\u0626\u06CC]/g, '\u064A')
-        .replace(/حي\s|حى\s/gi, '')
-        .replace(/[\u0617-\u061A\u064B-\u065F\u0670]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-}
-
-function getSelectedValues(selectElement) {
-    return $(selectElement).val() || [];
-}
-
-// ------------------------------------------------------------------
-// تهيئة Select2 + حدث groupFilter
+// تهيئة Select2
 // ------------------------------------------------------------------
 $(document).ready(function(){
     $('select[multiple]').select2({
@@ -221,65 +207,31 @@ $(document).ready(function(){
 
     $('#groupFilter').on('change', function() {
         const selected = $(this).val() || [];
-        const currentSelectedCenters = $('#centerFilter').val() || [];
-        let toAdd = [];
-
-        const allCenterOptions = $('#centerFilter option').map(function() {
-            return $(this).val();
-        }).get();
-
-        // كل الأحياء
-        if (selected.includes('__ALL_AHYAA__')) {
-            ALL_AHYAA.forEach(hay => {
-                const hayNorm = normalizeText(hay);
-                const matches = allCenterOptions.filter(center => {
-                    const centerNorm = normalizeText(center);
-                    // استثناء صريح لمدينة 15 مايو (بكل صيغها المحتملة)
-                    if (/مدين[ةه]?(\s+15\s+مايو|\s*15\s*مايو)/i.test(center)) {
-                        return false;
-                    }
-                    return centerNorm.includes(hayNorm) || hayNorm.includes(centerNorm);
-                });
-                toAdd.push(...matches);
-            });
-        }
-
-        // كل المجتمعات
-        if (selected.includes('__ALL_MOJTM3AT__')) {
-            ALL_MOJTM3AT.forEach(comm => {
-                const commNorm = normalizeText(comm);
-                const matches = allCenterOptions.filter(c => {
-                    const cNorm = normalizeText(c);
-                    return cNorm.includes(commNorm) || commNorm.includes(cNorm);
-                });
-                toAdd.push(...matches);
-            });
-        }
-
-        if (toAdd.length > 0) {
-            let updated = [...new Set([...currentSelectedCenters, ...toAdd])];
+        let centersToAdd = [];
+        if (selected.includes('__ALL_AHYAA__')) centersToAdd.push(...ALL_AHYAA);
+        if (selected.includes('__ALL_MOJTM3AT__')) centersToAdd.push(...ALL_MOJTM3AT);
+        if (centersToAdd.length) {
+            let current = $('#centerFilter').val() || [];
+            let updated = [...new Set([...current, ...centersToAdd])];
             $('#centerFilter').val(updated).trigger('change');
         }
     });
 });
 
-// ------------------------------------------------------------------
-// باقي المتغيرات والدوال
-// ------------------------------------------------------------------
-const excelInput = document.getElementById('excelFile');
-const startDateInput = document.getElementById('startDate');
-const endDateInput = document.getElementById('endDate');
-const centerFilter = document.getElementById('centerFilter');
-const groupFilter = document.getElementById('groupFilter');
-const lawFilter = document.getElementById('lawStatusFilter');
-const replyFilter = document.getElementById('replyStatusFilter');
-const inspectionFilter = document.getElementById('inspectionFilter');
-const processBtn = document.getElementById('processBtn');
-const exportSummaryBtn = document.getElementById('exportSummaryBtn');
-const exportDetailedBtn = document.getElementById('exportDetailedBtn');
-const exportKmlBtn = document.getElementById('exportKmlBtn');
-const message = document.getElementById('message');
-const summaryTableBody = document.querySelector('#summaryTable tbody');
+const excelInput         = document.getElementById('excelFile');
+const startDateInput     = document.getElementById('startDate');
+const endDateInput       = document.getElementById('endDate');
+const centerFilter       = document.getElementById('centerFilter');
+const groupFilter        = document.getElementById('groupFilter');
+const lawFilter          = document.getElementById('lawStatusFilter');
+const replyFilter        = document.getElementById('replyStatusFilter');
+const inspectionFilter   = document.getElementById('inspectionFilter');
+const processBtn         = document.getElementById('processBtn');
+const exportSummaryBtn   = document.getElementById('exportSummaryBtn');
+const exportDetailedBtn  = document.getElementById('exportDetailedBtn');
+const exportKmlBtn       = document.getElementById('exportKmlBtn');
+const message            = document.getElementById('message');
+const summaryTableBody   = document.querySelector('#summaryTable tbody');
 
 let dataRows = [];
 let allCenters = new Set();
@@ -287,7 +239,7 @@ let lastFilteredRows = [];
 
 excelInput.onchange = () => { if (excelInput.files.length > 0) readExcelFile(); };
 
-function showMessage(txt, type = 'info'){
+function showMessage(txt, type = 'info') {
     message.innerHTML = txt;
     message.className = `message ${type}`;
     message.style.display = 'block';
@@ -321,7 +273,7 @@ function readExcelFile() {
             allCenters.clear();
             dataRows.forEach(row => {
                 const keys = Object.keys(row);
-                const center = (row[keys[23]] || 'غير محدد').toString().trim();
+                const center = row[keys[23]] || 'غير محدد';
                 allCenters.add(center);
             });
 
@@ -350,6 +302,20 @@ function readExcelFile() {
     reader.readAsArrayBuffer(file);
 }
 
+function normalizeText(text) {
+    if (!text || typeof text !== 'string') return '';
+    return text
+        .replace(/[\u0649\u0626\u06CC]/g, '\u064A')
+        .replace(/[\u0617-\u061A\u064B-\u065F\u0670]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function getSelectedValues(selectElement) {
+    return $(selectElement).val() || [];
+}
+
 function generateSummaryByCenter() {
     if (dataRows.length === 0) return showMessage('لم يتم تحميل ملف', 'error');
     if (!startDateInput.value || !endDateInput.value) return showMessage('حدد التواريخ', 'error');
@@ -357,13 +323,16 @@ function generateSummaryByCenter() {
     summaryTableBody.innerHTML = '';
 
     const start = startDateInput.value;
-    const end = endDateInput.value;
-    const selectedCenters = getSelectedValues(centerFilter);
-    const selectedLaws = getSelectedValues(lawFilter);
-    const selectedReplies = getSelectedValues(replyFilter);
-    const selectedInspects = getSelectedValues(inspectionFilter);
+    const end   = endDateInput.value;
 
-    const filtered = dataRows.filter(row => {
+    const selectedCenters   = getSelectedValues(centerFilter);
+    const selectedGroups    = getSelectedValues(groupFilter);
+    const selectedLaws      = getSelectedValues(lawFilter);
+    const selectedReplies   = getSelectedValues(replyFilter);
+    const selectedInspects  = getSelectedValues(inspectionFilter);
+
+    // 1. الفلتر الأساسي → فقط التاريخ + المركز / المجموعة
+    const filtered_base = dataRows.filter(row => {
         let dateVal = row['تاريخ الرصد'] || row['تاريخ المعاينة'] || '';
         if (!dateVal) return false;
 
@@ -377,13 +346,41 @@ function generateSummaryByCenter() {
         if (rowDateStr < start || rowDateStr > end) return false;
 
         const keys = Object.keys(row);
-        const center = (row[keys[23]] || 'غير محدد').toString().trim();
+        const center = row[keys[23]] || 'غير محدد';
 
         if (selectedCenters.length > 0 && !selectedCenters.includes(center)) return false;
 
+        if (selectedGroups.length > 0 && !selectedGroups.includes('__ALL_AHYAA__') && !selectedGroups.includes('__ALL_MOJTM3AT__')) {
+            let match = false;
+            const normCenter = normalizeText(center);
+            selectedGroups.forEach(g => {
+                if (normCenter.includes(normalizeText(g))) match = true;
+            });
+            if (!match) return false;
+        }
+
+        return true;
+    });
+
+    if (filtered_base.length === 0) {
+        showMessage('لا توجد بيانات تطابق التاريخ والمركز/المجموعة', 'info');
+        exportSummaryBtn.disabled = exportDetailedBtn.disabled = exportKmlBtn.disabled = true;
+        return;
+    }
+
+    // حساب الإجمالي لكل مركز (ثابت - لا يتأثر بالفلاتر الثلاثة)
+    const totalByCenter = {};
+    filtered_base.forEach(row => {
+        const keys = Object.keys(row);
+        const center = row[keys[23]] || 'غير محدد';
+        totalByCenter[center] = (totalByCenter[center] || 0) + 1;
+    });
+
+    // 2. الفلتر التفصيلي → يشمل كل الفلاتر المتبقية
+    const filtered_details = filtered_base.filter(row => {
+        // فلتر القانونية
         const rawLaw = (row['القانوني'] || '').toString().trim();
         const normLaw = normalizeText(rawLaw);
-
         if (selectedLaws.length > 0) {
             let matchLaw = false;
             if (selectedLaws.includes('قانوني مؤقت') && normLaw.includes('مؤقت')) matchLaw = true;
@@ -394,15 +391,7 @@ function generateSummaryByCenter() {
             if (!matchLaw) return false;
         }
 
-        let status = (row[' حالة المتغير'] || '').toString().trim();
-        if (selectedReplies.length > 0) {
-            const isReplied = status.includes('المركز الرئيسي');
-            let matchReply = false;
-            if (selectedReplies.includes('تم الرد') && isReplied) matchReply = true;
-            if (selectedReplies.includes('لم يتم الرد') && !isReplied) matchReply = true;
-            if (!matchReply) return false;
-        }
-
+        // فلتر حالة المعاينة
         const inspect = (row['حالة المعاينة'] || '').toString().trim();
         if (selectedInspects.length > 0) {
             let matchInspect = false;
@@ -411,44 +400,54 @@ function generateSummaryByCenter() {
             if (!matchInspect) return false;
         }
 
+        // فلتر حالة الرد
+        let status = (row[' حالة المتغير'] || '').toString().trim();
+        const isReplied = status.includes('المركز الرئيسي');
+        if (selectedReplies.length > 0) {
+            let matchReply = false;
+            if (selectedReplies.includes('تم الرد') && isReplied) matchReply = true;
+            if (selectedReplies.includes('لم يتم الرد') && !isReplied) matchReply = true;
+            if (!matchReply) return false;
+        }
+
         return true;
     });
 
-    lastFilteredRows = filtered;
+    lastFilteredRows = filtered_details;
 
-    if (filtered.length === 0) {
-        showMessage('لا توجد بيانات تطابق الفلاتر المختارة', 'info');
-        exportSummaryBtn.disabled = exportDetailedBtn.disabled = exportKmlBtn.disabled = true;
-        return;
-    }
-
+    // حساب التفاصيل من الصفوف المفلترة بالكامل
+    const summary = {};
     let maxGovReplyDate = null;
-    filtered.forEach(row => {
+
+    filtered_details.forEach(row => {
         let dateVal = row['تاريخ رد المحافظة'] || '';
-        if (!dateVal) return;
-        let parsedDate = (typeof dateVal === 'number')
-            ? excelSerialToDate(dateVal)
-            : new Date(dateVal.toString().trim().replace(/[\.\/-]/g, '-'));
-        if (!isNaN(parsedDate?.getTime()) && (!maxGovReplyDate || parsedDate > maxGovReplyDate)) {
-            maxGovReplyDate = parsedDate;
+        if (dateVal) {
+            let parsed = (typeof dateVal === 'number')
+                ? excelSerialToDate(dateVal)
+                : new Date(dateVal.toString().trim().replace(/[\.\/-]/g, '-'));
+            if (!isNaN(parsed?.getTime()) && (!maxGovReplyDate || parsed > maxGovReplyDate)) {
+                maxGovReplyDate = parsed;
+            }
         }
     });
-
     const lastReplyDateStr = maxGovReplyDate?.toISOString().split('T')[0] ?? null;
 
-    const summary = {};
-    filtered.forEach(row => {
+    filtered_details.forEach(row => {
         const keys = Object.keys(row);
-        const مركز = (row[keys[23]] || 'غير محدد').toString().trim();
+        const مركز = row[keys[23]] || 'غير محدد';
+
         if (!summary[مركز]) {
-            summary[مركز] = { اجمالي:0, تم_الرد:0, لم_يتم_الرد:0, تم_المعاينة:0,
-                              قانوني:0, غير_قانوني:0, قانوني_مؤقت:0, أخرى:0, انجاز_اليوم:0 };
+            summary[مركز] = {
+                تم_الرد: 0, لم_يتم_الرد: 0, تم_المعاينة: 0,
+                قانوني: 0, غير_قانوني: 0, قانوني_مؤقت: 0, أخرى: 0, انجاز_اليوم: 0
+            };
         }
-        summary[مركز].اجمالي += 1;
 
         let status = (row[' حالة المتغير'] || '').toString().trim();
+
         if (status.includes('المركز الرئيسي')) {
             summary[مركز].تم_الرد += 1;
+
             let govReplyDateStr = null;
             let d = row['تاريخ رد المحافظة'];
             if (d) {
@@ -475,18 +474,31 @@ function generateSummaryByCenter() {
         }
     });
 
+    // عرض الجدول
     const rowsArray = [];
-    for (const مركز in summary) {
-        const s = summary[مركز];
-        const انجازNumeric = s.اجمالي > 0 ? (s.تم_الرد / s.اجمالي * 100) : 0;
+    for (const مركز in totalByCenter) {
+        const total = totalByCenter[مركز];
+        const s = summary[مركز] || {
+            تم_الرد: 0, لم_يتم_الرد: 0, تم_المعاينة: 0,
+            قانوني: 0, غير_قانوني: 0, قانوني_مؤقت: 0, أخرى: 0, انجاز_اليوم: 0
+        };
+
+        const انجازNumeric = total > 0 ? (s.تم_الرد / total * 100) : 0;
         const انجاز = انجازNumeric.toFixed(2);
         const نسبة_غير_قانوني = s.تم_الرد > 0 ? (s.غير_قانوني / s.تم_الرد * 100).toFixed(2) : '0.00';
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${مركز}</td><td>${s.اجمالي}</td><td>${s.تم_الرد}</td><td>${s.لم_يتم_الرد}</td>
-            <td>${s.تم_المعاينة}</td><td>${s.قانوني}</td><td>${s.غير_قانوني}</td><td>${نسبة_غير_قانوني}%</td>
-            <td>${s.قانوني_مؤقت}</td><td>${s.أخرى}</td>
+            <td>${مركز}</td>
+            <td>${total}</td>
+            <td>${s.تم_الرد}</td>
+            <td>${s.لم_يتم_الرد}</td>
+            <td>${s.تم_المعاينة}</td>
+            <td>${s.قانوني}</td>
+            <td>${s.غير_قانوني}</td>
+            <td>${نسبة_غير_قانوني}%</td>
+            <td>${s.قانوني_مؤقت}</td>
+            <td>${s.أخرى}</td>
             <td style="font-weight:bold;color:#2e7d32;">${انجاز}%</td>
             <td style="font-weight:bold;color:#d81b60;">${s.انجاز_اليوم}</td>`;
         tr.dataset.انجاز = انجازNumeric;
@@ -496,27 +508,45 @@ function generateSummaryByCenter() {
     rowsArray.sort((a,b) => parseFloat(b.dataset.انجاز) - parseFloat(a.dataset.انجاز));
     rowsArray.forEach(tr => summaryTableBody.appendChild(tr));
 
-    let total = {اجمالي:0, تم_الرد:0, لم_يتم_الرد:0, تم_المعاينة:0, قانوني:0, غير_قانوني:0, قانوني_مؤقت:0, أخرى:0, انجاز_اليوم:0};
-    for (const مركز in summary) {
-        const s = summary[مركز];
-        Object.keys(total).forEach(k => total[k] += s[k]);
+    // الإجمالي الكلي
+    let grandTotal = 0, grandReplied = 0, grandNotReplied = 0, grandInspected = 0;
+    let grandLegal = 0, grandIllegal = 0, grandTemp = 0, grandOther = 0, grandToday = 0;
+
+    for (const center in totalByCenter) {
+        grandTotal += totalByCenter[center];
+        const s = summary[center] || {};
+        grandReplied    += s.تم_الرد       || 0;
+        grandNotReplied += s.لم_يتم_الرد   || 0;
+        grandInspected  += s.تم_المعاينة   || 0;
+        grandLegal      += s.قانوني        || 0;
+        grandIllegal    += s.غير_قانوني    || 0;
+        grandTemp       += s.قانوني_مؤقت   || 0;
+        grandOther      += s.أخرى          || 0;
+        grandToday      += s.انجاز_اليوم   || 0;
     }
 
-    const total_انجاز = total.اجمالي > 0 ? (total.تم_الرد / total.اجمالي * 100).toFixed(2) : '0.00';
-    const total_نسبة_غير_قانوني = total.تم_الرد > 0 ? (total.غير_قانوني / total.تم_الرد * 100).toFixed(2) : '0.00';
+    const grandCompletion = grandTotal > 0 ? (grandReplied / grandTotal * 100).toFixed(2) : '0.00';
+    const grandIllegalPct = grandReplied > 0 ? (grandIllegal / grandReplied * 100).toFixed(2) : '0.00';
 
     const totalRow = document.createElement('tr');
     totalRow.style.background = '#e3f2fd';
     totalRow.style.fontWeight = 'bold';
     totalRow.innerHTML = `
-        <td style="text-align:right; background:#667eea; color:white; font-weight:bold;">الإجمالي الكلي</td>
-        <td>${total.اجمالي}</td><td>${total.تم_الرد}</td><td>${total.لم_يتم_الرد}</td><td>${total.تم_المعاينة}</td>
-        <td>${total.قانوني}</td><td>${total.غير_قانوني}</td><td>${total_نسبة_غير_قانوني}%</td>
-        <td>${total.قانوني_مؤقت}</td><td>${total.أخرى}</td>
-        <td style="color:#2e7d32;">${total_انجاز}%</td><td style="color:#d81b60;">${total.انجاز_اليوم}</td>`;
+        <td style="text-align:right; background:#667eea; color:white;">الإجمالي الكلي</td>
+        <td>${grandTotal}</td>
+        <td>${grandReplied}</td>
+        <td>${grandNotReplied}</td>
+        <td>${grandInspected}</td>
+        <td>${grandLegal}</td>
+        <td>${grandIllegal}</td>
+        <td>${grandIllegalPct}%</td>
+        <td>${grandTemp}</td>
+        <td>${grandOther}</td>
+        <td style="color:#2e7d32;">${grandCompletion}%</td>
+        <td style="color:#d81b60;">${grandToday}</td>`;
     summaryTableBody.appendChild(totalRow);
 
-    showMessage(`تم إنشاء التقرير (${Object.keys(summary).length} مركز - ${filtered.length} سجل)`, 'success');
+    showMessage(`تم إنشاء التقرير (${Object.keys(totalByCenter).length} مركز - ${filtered_details.length} سجل مفلتر)`, 'success');
     exportSummaryBtn.disabled = exportDetailedBtn.disabled = exportKmlBtn.disabled = false;
 }
 
@@ -530,21 +560,14 @@ function exportSummaryToExcel() {
 function exportDetailedToExcel() {
     if (lastFilteredRows.length === 0) return showMessage('لا توجد سجلات تفصيلية للتصدير', 'error');
     const filteredData = lastFilteredRows.map(row => ({ ...row }));
-    filteredData.forEach(row => {
-        const keys = Object.keys(row);
-        for (let i = 4; i <= 22; i++) if (keys[i]) delete row[keys[i]];
-    });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(filteredData);
-    ws['!cols'] = Array(Object.keys(filteredData[0]||{}).length).fill({wch:18});
     XLSX.utils.book_append_sheet(wb, ws, 'التفصيلي');
     XLSX.writeFile(wb, `تفصيلي_تقرير_${startDateInput.value}_إلى_${endDateInput.value}.xlsx`);
 }
 
 function exportToKML() {
-    if (lastFilteredRows.length === 0) {
-        return showMessage('لا توجد بيانات مفلترة للتصدير إلى KML', 'error');
-    }
+    if (lastFilteredRows.length === 0) return showMessage('لا توجد بيانات مفلترة للتصدير إلى KML', 'error');
 
     let latCol = null, lonCol = null;
     if (lastFilteredRows.length > 0) {
@@ -552,29 +575,17 @@ function exportToKML() {
         latCol = keys.find(k => k.includes('خط العرض') || k.toLowerCase().includes('lat'));
         lonCol = keys.find(k => k.includes('خط الطول') || k.toLowerCase().includes('lon') || k.includes('طول'));
     }
-
-    if (!latCol || !lonCol) {
-        return showMessage('لم يتم العثور على أعمدة خط العرض / خط الطول', 'error');
-    }
+    if (!latCol || !lonCol) return showMessage('لم يتم العثور على أعمدة خط العرض / خط الطول', 'error');
 
     let kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
     <Document>
         <name>نقاط التقرير ${startDateInput.value} إلى ${endDateInput.value}</name>
         <Style id="pinStyle">
-            <IconStyle>
-                <color>ff00aaff</color>
-                <scale>1.1</scale>
-                <Icon>
-                    <href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>
-                </Icon>
-            </IconStyle>
-            <LabelStyle>
-                <scale>0.8</scale>
-            </LabelStyle>
+            <IconStyle><color>ff00aaff</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon></IconStyle>
+            <LabelStyle><scale>0.8</scale></LabelStyle>
         </Style>
-        <Folder>
-            <name>النقاط</name>`;
+        <Folder><name>النقاط</name>`;
 
     lastFilteredRows.forEach((row, i) => {
         let lat = parseFloat((row[latCol] || '').toString().trim().replace(/,/g, '.'));
@@ -588,37 +599,24 @@ function exportToKML() {
             <Placemark>
                 <name>${displayName}</name>
                 <styleUrl>#pinStyle</styleUrl>
-                <Point>
-                    <coordinates>${lon},${lat},0</coordinates>
-                </Point>
+                <Point><coordinates>${lon},${lat},0</coordinates></Point>
                 <ExtendedData>`;
 
         Object.entries(row).forEach(([key, value]) => {
             if (value == null || value === '') return;
-            let safeKey = key.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '');
-            if (!safeKey) safeKey = `field_${i}`;
+            let safeKey = key.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') || `field_${i}`;
             let safeValue = String(value).trim()
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
-
-            kml += `
-                    <Data name="${safeKey}">
-                        <displayName>${key.trim()}</displayName>
-                        <value>${safeValue}</value>
-                    </Data>`;
+            kml += `<Data name="${safeKey}"><displayName>${key.trim()}</displayName><value>${safeValue}</value></Data>`;
         });
 
-        kml += `
-                </ExtendedData>
-            </Placemark>`;
+        kml += `</ExtendedData></Placemark>`;
     });
 
-    kml += `
-        </Folder>
-    </Document>
-</kml>`;
+    kml += `</Folder></Document></kml>`;
 
     const blob = new Blob([kml], {type: 'application/vnd.google-earth.kml+xml'});
     const url = URL.createObjectURL(blob);
@@ -627,7 +625,6 @@ function exportToKML() {
     a.download = `نقاط_التقرير_${startDateInput.value}_إلى_${endDateInput.value}.kml`;
     a.click();
     URL.revokeObjectURL(url);
-
     showMessage(`تم تصدير ${lastFilteredRows.length} نقطة إلى KML`, 'success');
 }
 
