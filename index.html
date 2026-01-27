@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تقرير تلخيصي بالمركز مع القانونية - واجهة احترافية</title>
+    <title>تقارير المتغيرات المكانية لمحافظة القاهرة</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -34,28 +34,14 @@
         .success { background:#e6fffa; color:#0c8599; border-right:5px solid #0c8599; }
         .error { background:#fff5f5; color:#c92a2a; border-right:5px solid #c92a2a; }
         .info { background:#e7f5ff; color:#1971c2; border-right:5px solid #1971c2; }
-
-        /* ─────────────── التعديل الوحيد ─────────────── */
-        #groupFilter + .select2-container {
-            width: 100% !important;
-        }
-        #groupFilter + .select2-container .select2-dropdown {
-            width: 380px !important;
-            max-width: 90vw !important;
-        }
-        #groupFilter + .select2-container .select2-results__option {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-            direction: rtl;
-        }
-        /* ─────────────────────────────────────────────── */
+        #groupFilter + .select2-container { width: 100% !important; }
+        #groupFilter + .select2-container .select2-dropdown { width: 380px !important; max-width: 90vw !important; }
+        #groupFilter + .select2-container .select2-results__option { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; direction: rtl; }
     </style>
 </head>
 <body>
 <div class="app">
-    <h1 class="title"><i class="fas fa-chart-bar"></i> تقرير تلخيصي بالمركز مع القانونية</h1>
+    <h1 class="title"><i class="fas fa-chart-bar"></i> تقارير المتغيرات المكانية لمحافظة القاهرة</h1>
     <label>اختر ملف الإكسل</label>
     <input type="file" id="excelFile" accept=".xlsx,.xls">
     <div class="filters">
@@ -197,12 +183,32 @@ const ALL_AHYAA = [
     "حى الاميريه","حى 15 مايو","حى غرب","حى باب الشعريه","حى شبرا",
     "حى الازبكيه","حى الموسكى","حى عابدين"
 ];
+
 const ALL_MOJTM3AT = [
     "القاهرة الجديدة","بدر","الشروق","العاصمة الادارية الجديدة","مدينة 15 مايو",
     "حدائق العاصمة","ظهير صحراوى محافظة القاهرة","ظهير هيئة المجتمعات العمراني"
 ];
+
 // ------------------------------------------------------------------
-// تهيئة Select2 + ربط حدث تغيير groupFilter
+// دوال مساعدة
+// ------------------------------------------------------------------
+function normalizeText(text) {
+    if (!text || typeof text !== 'string') return '';
+    return text
+        .replace(/[\u0649\u0626\u06CC]/g, '\u064A')
+        .replace(/حي\s|حى\s/gi, '')
+        .replace(/[\u0617-\u061A\u064B-\u065F\u0670]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function getSelectedValues(selectElement) {
+    return $(selectElement).val() || [];
+}
+
+// ------------------------------------------------------------------
+// تهيئة Select2 + حدث groupFilter
 // ------------------------------------------------------------------
 $(document).ready(function(){
     $('select[multiple]').select2({
@@ -215,21 +221,51 @@ $(document).ready(function(){
 
     $('#groupFilter').on('change', function() {
         const selected = $(this).val() || [];
-        let centersToAdd = [];
+        const currentSelectedCenters = $('#centerFilter').val() || [];
+        let toAdd = [];
+
+        const allCenterOptions = $('#centerFilter option').map(function() {
+            return $(this).val();
+        }).get();
+
+        // كل الأحياء
         if (selected.includes('__ALL_AHYAA__')) {
-            centersToAdd = [...centersToAdd, ...ALL_AHYAA];
+            ALL_AHYAA.forEach(hay => {
+                const hayNorm = normalizeText(hay);
+                const matches = allCenterOptions.filter(center => {
+                    const centerNorm = normalizeText(center);
+                    // استثناء صريح لمدينة 15 مايو (بكل صيغها المحتملة)
+                    if (/مدين[ةه]?(\s+15\s+مايو|\s*15\s*مايو)/i.test(center)) {
+                        return false;
+                    }
+                    return centerNorm.includes(hayNorm) || hayNorm.includes(centerNorm);
+                });
+                toAdd.push(...matches);
+            });
         }
+
+        // كل المجتمعات
         if (selected.includes('__ALL_MOJTM3AT__')) {
-            centersToAdd = [...centersToAdd, ...ALL_MOJTM3AT];
+            ALL_MOJTM3AT.forEach(comm => {
+                const commNorm = normalizeText(comm);
+                const matches = allCenterOptions.filter(c => {
+                    const cNorm = normalizeText(c);
+                    return cNorm.includes(commNorm) || commNorm.includes(cNorm);
+                });
+                toAdd.push(...matches);
+            });
         }
-        if (centersToAdd.length > 0) {
-            let current = $('#centerFilter').val() || [];
-            let updated = [...new Set([...current, ...centersToAdd])];
+
+        if (toAdd.length > 0) {
+            let updated = [...new Set([...currentSelectedCenters, ...toAdd])];
             $('#centerFilter').val(updated).trigger('change');
         }
     });
 });
 
+// ------------------------------------------------------------------
+// باقي المتغيرات والدوال
+// ------------------------------------------------------------------
 const excelInput = document.getElementById('excelFile');
 const startDateInput = document.getElementById('startDate');
 const endDateInput = document.getElementById('endDate');
@@ -237,13 +273,13 @@ const centerFilter = document.getElementById('centerFilter');
 const groupFilter = document.getElementById('groupFilter');
 const lawFilter = document.getElementById('lawStatusFilter');
 const replyFilter = document.getElementById('replyStatusFilter');
-const inspectionFilter= document.getElementById('inspectionFilter');
+const inspectionFilter = document.getElementById('inspectionFilter');
 const processBtn = document.getElementById('processBtn');
-const exportSummaryBtn= document.getElementById('exportSummaryBtn');
-const exportDetailedBtn= document.getElementById('exportDetailedBtn');
+const exportSummaryBtn = document.getElementById('exportSummaryBtn');
+const exportDetailedBtn = document.getElementById('exportDetailedBtn');
 const exportKmlBtn = document.getElementById('exportKmlBtn');
 const message = document.getElementById('message');
-const summaryTableBody= document.querySelector('#summaryTable tbody');
+const summaryTableBody = document.querySelector('#summaryTable tbody');
 
 let dataRows = [];
 let allCenters = new Set();
@@ -281,12 +317,14 @@ function readExcelFile() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             dataRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
             allCenters.clear();
             dataRows.forEach(row => {
                 const keys = Object.keys(row);
-                const center = row[keys[23]] || 'غير محدد';
+                const center = (row[keys[23]] || 'غير محدد').toString().trim();
                 allCenters.add(center);
             });
+
             centerFilter.innerHTML = '';
             [...allCenters].sort().forEach(c => {
                 const opt = document.createElement('option');
@@ -294,6 +332,7 @@ function readExcelFile() {
                 opt.textContent = c;
                 centerFilter.appendChild(opt);
             });
+
             $('#centerFilter').select2('destroy').select2({
                 placeholder: "اختر واحد أو أكثر (يمكن البحث)",
                 allowClear: true,
@@ -301,6 +340,7 @@ function readExcelFile() {
                 language: "ar",
                 dir: "rtl"
             });
+
             showMessage(`تم تحميل ${dataRows.length} سجل`, 'success');
             processBtn.disabled = false;
         } catch (err) {
@@ -308,20 +348,6 @@ function readExcelFile() {
         }
     };
     reader.readAsArrayBuffer(file);
-}
-
-function normalizeText(text) {
-    if (!text || typeof text !== 'string') return '';
-    return text
-        .replace(/[\u0649\u0626\u06CC]/g, '\u064A')
-        .replace(/[\u0617-\u061A\u064B-\u065F\u0670]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
-}
-
-function getSelectedValues(selectElement) {
-    return $(selectElement).val() || [];
 }
 
 function generateSummaryByCenter() {
@@ -333,10 +359,9 @@ function generateSummaryByCenter() {
     const start = startDateInput.value;
     const end = endDateInput.value;
     const selectedCenters = getSelectedValues(centerFilter);
-    const selectedGroups = getSelectedValues(groupFilter);
     const selectedLaws = getSelectedValues(lawFilter);
     const selectedReplies = getSelectedValues(replyFilter);
-    const selectedInspects= getSelectedValues(inspectionFilter);
+    const selectedInspects = getSelectedValues(inspectionFilter);
 
     const filtered = dataRows.filter(row => {
         let dateVal = row['تاريخ الرصد'] || row['تاريخ المعاينة'] || '';
@@ -349,22 +374,12 @@ function generateSummaryByCenter() {
             let cleaned = dateVal.toString().trim().replace(/[\.\/-]/g, '-');
             rowDateStr = new Date(cleaned).toISOString().split('T')[0];
         }
-
         if (rowDateStr < start || rowDateStr > end) return false;
 
         const keys = Object.keys(row);
-        const center = row[keys[23]] || 'غير محدد';
+        const center = (row[keys[23]] || 'غير محدد').toString().trim();
 
         if (selectedCenters.length > 0 && !selectedCenters.includes(center)) return false;
-
-        if (selectedGroups.length > 0 && !selectedGroups.includes('__ALL_AHYAA__') && !selectedGroups.includes('__ALL_MOJTM3AT__')) {
-            let match = false;
-            const normCenter = normalizeText(center);
-            selectedGroups.forEach(g => {
-                if (normCenter.includes(normalizeText(g))) match = true;
-            });
-            if (!match) return false;
-        }
 
         const rawLaw = (row['القانوني'] || '').toString().trim();
         const normLaw = normalizeText(rawLaw);
@@ -424,7 +439,7 @@ function generateSummaryByCenter() {
     const summary = {};
     filtered.forEach(row => {
         const keys = Object.keys(row);
-        const مركز = row[keys[23]] || 'غير محدد';
+        const مركز = (row[keys[23]] || 'غير محدد').toString().trim();
         if (!summary[مركز]) {
             summary[مركز] = { اجمالي:0, تم_الرد:0, لم_يتم_الرد:0, تم_المعاينة:0,
                               قانوني:0, غير_قانوني:0, قانوني_مؤقت:0, أخرى:0, انجاز_اليوم:0 };
@@ -434,14 +449,12 @@ function generateSummaryByCenter() {
         let status = (row[' حالة المتغير'] || '').toString().trim();
         if (status.includes('المركز الرئيسي')) {
             summary[مركز].تم_الرد += 1;
-
             let govReplyDateStr = null;
             let d = row['تاريخ رد المحافظة'];
             if (d) {
                 let pd = (typeof d === 'number') ? excelSerialToDate(d) : new Date(d.toString().trim().replace(/[\.\/-]/g,'-'));
                 if (!isNaN(pd?.getTime())) govReplyDateStr = pd.toISOString().split('T')[0];
             }
-
             if (lastReplyDateStr && govReplyDateStr === lastReplyDateStr) {
                 summary[مركز].انجاز_اليوم += 1;
             }
@@ -582,9 +595,7 @@ function exportToKML() {
 
         Object.entries(row).forEach(([key, value]) => {
             if (value == null || value === '') return;
-            let safeKey = key.trim()
-                .replace(/[^a-zA-Z0-9_]/g, '_')
-                .replace(/^_+|_+$/g, '');
+            let safeKey = key.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '');
             if (!safeKey) safeKey = `field_${i}`;
             let safeValue = String(value).trim()
                 .replace(/&/g, '&amp;')
@@ -617,12 +628,12 @@ function exportToKML() {
     a.click();
     URL.revokeObjectURL(url);
 
-    showMessage(`تم تصدير ${lastFilteredRows.length} نقطة إلى KML (مع كامل البيانات في ExtendedData)`, 'success');
+    showMessage(`تم تصدير ${lastFilteredRows.length} نقطة إلى KML`, 'success');
 }
 
 processBtn.onclick = generateSummaryByCenter;
-exportSummaryBtn.onclick= exportSummaryToExcel;
-exportDetailedBtn.onclick= exportDetailedToExcel;
+exportSummaryBtn.onclick = exportSummaryToExcel;
+exportDetailedBtn.onclick = exportDetailedToExcel;
 exportKmlBtn.onclick = exportToKML;
 </script>
 </body>
