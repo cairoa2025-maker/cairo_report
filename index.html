@@ -10,7 +10,6 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Cairo',sans-serif; }
         body { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; padding:20px; }
@@ -34,18 +33,41 @@
         .success { background:#e6fffa; color:#0c8599; border-right:5px solid #0c8599; }
         .error { background:#fff5f5; color:#c92a2a; border-right:5px solid #c92a2a; }
         .info { background:#e7f5ff; color:#1971c2; border-right:5px solid #1971c2; }
-        #groupFilter + .select2-container { width: 100% !important; }
-        #groupFilter + .select2-container .select2-dropdown { width: 380px !important; max-width: 90vw !important; }
-        #groupFilter + .select2-container .select2-results__option { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; direction: rtl; }
+
+        /* تحسين عرض Select2 */
+        .select2-container--default .select2-selection--multiple {
+            min-height: 38px;
+            border: 1px solid #d1d9e6;
+            border-radius: 8px;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            padding: 6px 12px;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            margin: 4px 4px 4px 0;
+            padding: 0 8px;
+            background: #e2e8f0;
+            border-radius: 6px;
+        }
+        /* تقييد عرض القائمة المنسدلة */
+        #centerFilter + .select2-container .select2-dropdown,
+        #groupFilter + .select2-container .select2-dropdown {
+            width: 380px !important;
+            max-width: 92vw !important;
+        }
+        .select2-results__option {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            direction: rtl;
+        }
     </style>
 </head>
 <body>
 <div class="app">
     <h1 class="title"><i class="fas fa-chart-bar"></i> تقرير تلخيصي بالمركز مع القانونية</h1>
-
     <label>اختر ملف الإكسل</label>
     <input type="file" id="excelFile" accept=".xlsx,.xls">
-
     <div class="filters">
         <div>
             <label>تاريخ البداية</label>
@@ -141,7 +163,6 @@
             </select>
         </div>
     </div>
-
     <div class="buttons">
         <button class="btn" id="processBtn" disabled>عرض التقرير</button>
         <button class="btn" id="exportSummaryBtn" disabled>تصدير الملخص</button>
@@ -150,9 +171,7 @@
             تصدير إلى KML
         </button>
     </div>
-
     <div class="message" id="message"></div>
-
     <table id="summaryTable">
         <thead>
             <tr>
@@ -194,7 +213,7 @@ const ALL_MOJTM3AT = [
 ];
 
 // ------------------------------------------------------------------
-// تهيئة Select2
+// تهيئة Select2 + تعديل السلوك عند اختيار "كل الأحياء"
 // ------------------------------------------------------------------
 $(document).ready(function(){
     $('select[multiple]').select2({
@@ -208,9 +227,28 @@ $(document).ready(function(){
     $('#groupFilter').on('change', function() {
         const selected = $(this).val() || [];
         let centersToAdd = [];
-        if (selected.includes('__ALL_AHYAA__')) centersToAdd.push(...ALL_AHYAA);
-        if (selected.includes('__ALL_MOJTM3AT__')) centersToAdd.push(...ALL_MOJTM3AT);
-        if (centersToAdd.length) {
+        let centersToRemove = [];
+
+        // كل المجتمعات
+        if (selected.includes('__ALL_MOJTM3AT__')) {
+            centersToAdd.push(...ALL_MOJTM3AT);
+        }
+
+        // كل الأحياء → نضيف كل المراكز الموجودة فعلياً ماعدا المجتمعات
+        if (selected.includes('__ALL_AHYAA__')) {
+            const currentAllCenters = [...allCenters]; // من ملف الإكسل
+            const mojtm3atNormalized = ALL_MOJTM3AT.map(n => normalizeText(n));
+            
+            currentAllCenters.forEach(center => {
+                const normCenter = normalizeText(center);
+                // لو المركز مش موجود ضمن المجتمعات → نضيفه
+                if (!mojtm3atNormalized.some(m => normCenter.includes(m) || m.includes(normCenter))) {
+                    centersToAdd.push(center);
+                }
+            });
+        }
+
+        if (centersToAdd.length > 0) {
             let current = $('#centerFilter').val() || [];
             let updated = [...new Set([...current, ...centersToAdd])];
             $('#centerFilter').val(updated).trigger('change');
@@ -218,20 +256,20 @@ $(document).ready(function(){
     });
 });
 
-const excelInput         = document.getElementById('excelFile');
-const startDateInput     = document.getElementById('startDate');
-const endDateInput       = document.getElementById('endDate');
-const centerFilter       = document.getElementById('centerFilter');
-const groupFilter        = document.getElementById('groupFilter');
-const lawFilter          = document.getElementById('lawStatusFilter');
-const replyFilter        = document.getElementById('replyStatusFilter');
-const inspectionFilter   = document.getElementById('inspectionFilter');
-const processBtn         = document.getElementById('processBtn');
-const exportSummaryBtn   = document.getElementById('exportSummaryBtn');
-const exportDetailedBtn  = document.getElementById('exportDetailedBtn');
-const exportKmlBtn       = document.getElementById('exportKmlBtn');
-const message            = document.getElementById('message');
-const summaryTableBody   = document.querySelector('#summaryTable tbody');
+const excelInput = document.getElementById('excelFile');
+const startDateInput = document.getElementById('startDate');
+const endDateInput = document.getElementById('endDate');
+const centerFilter = document.getElementById('centerFilter');
+const groupFilter = document.getElementById('groupFilter');
+const lawFilter = document.getElementById('lawStatusFilter');
+const replyFilter = document.getElementById('replyStatusFilter');
+const inspectionFilter = document.getElementById('inspectionFilter');
+const processBtn = document.getElementById('processBtn');
+const exportSummaryBtn = document.getElementById('exportSummaryBtn');
+const exportDetailedBtn = document.getElementById('exportDetailedBtn');
+const exportKmlBtn = document.getElementById('exportKmlBtn');
+const message = document.getElementById('message');
+const summaryTableBody = document.querySelector('#summaryTable tbody');
 
 let dataRows = [];
 let allCenters = new Set();
@@ -269,14 +307,12 @@ function readExcelFile() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             dataRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
             allCenters.clear();
             dataRows.forEach(row => {
                 const keys = Object.keys(row);
                 const center = row[keys[23]] || 'غير محدد';
                 allCenters.add(center);
             });
-
             centerFilter.innerHTML = '';
             [...allCenters].sort().forEach(c => {
                 const opt = document.createElement('option');
@@ -284,7 +320,6 @@ function readExcelFile() {
                 opt.textContent = c;
                 centerFilter.appendChild(opt);
             });
-
             $('#centerFilter').select2('destroy').select2({
                 placeholder: "اختر واحد أو أكثر (يمكن البحث)",
                 allowClear: true,
@@ -292,7 +327,6 @@ function readExcelFile() {
                 language: "ar",
                 dir: "rtl"
             });
-
             showMessage(`تم تحميل ${dataRows.length} سجل`, 'success');
             processBtn.disabled = false;
         } catch (err) {
@@ -316,26 +350,22 @@ function getSelectedValues(selectElement) {
     return $(selectElement).val() || [];
 }
 
+// باقي الدوال بدون تغيير (generateSummaryByCenter, export..., إلخ)
 function generateSummaryByCenter() {
     if (dataRows.length === 0) return showMessage('لم يتم تحميل ملف', 'error');
     if (!startDateInput.value || !endDateInput.value) return showMessage('حدد التواريخ', 'error');
-
     summaryTableBody.innerHTML = '';
-
     const start = startDateInput.value;
-    const end   = endDateInput.value;
+    const end = endDateInput.value;
+    const selectedCenters = getSelectedValues(centerFilter);
+    const selectedGroups = getSelectedValues(groupFilter);
+    const selectedLaws = getSelectedValues(lawFilter);
+    const selectedReplies = getSelectedValues(replyFilter);
+    const selectedInspects = getSelectedValues(inspectionFilter);
 
-    const selectedCenters   = getSelectedValues(centerFilter);
-    const selectedGroups    = getSelectedValues(groupFilter);
-    const selectedLaws      = getSelectedValues(lawFilter);
-    const selectedReplies   = getSelectedValues(replyFilter);
-    const selectedInspects  = getSelectedValues(inspectionFilter);
-
-    // 1. الفلتر الأساسي → فقط التاريخ + المركز / المجموعة
     const filtered_base = dataRows.filter(row => {
         let dateVal = row['تاريخ الرصد'] || row['تاريخ المعاينة'] || '';
         if (!dateVal) return false;
-
         let rowDateStr;
         if (typeof dateVal === 'number') {
             rowDateStr = excelSerialToDate(dateVal).toISOString().split('T')[0];
@@ -350,15 +380,6 @@ function generateSummaryByCenter() {
 
         if (selectedCenters.length > 0 && !selectedCenters.includes(center)) return false;
 
-        if (selectedGroups.length > 0 && !selectedGroups.includes('__ALL_AHYAA__') && !selectedGroups.includes('__ALL_MOJTM3AT__')) {
-            let match = false;
-            const normCenter = normalizeText(center);
-            selectedGroups.forEach(g => {
-                if (normCenter.includes(normalizeText(g))) match = true;
-            });
-            if (!match) return false;
-        }
-
         return true;
     });
 
@@ -368,7 +389,6 @@ function generateSummaryByCenter() {
         return;
     }
 
-    // حساب الإجمالي لكل مركز (ثابت - لا يتأثر بالفلاتر الثلاثة)
     const totalByCenter = {};
     filtered_base.forEach(row => {
         const keys = Object.keys(row);
@@ -376,9 +396,7 @@ function generateSummaryByCenter() {
         totalByCenter[center] = (totalByCenter[center] || 0) + 1;
     });
 
-    // 2. الفلتر التفصيلي → يشمل كل الفلاتر المتبقية
     const filtered_details = filtered_base.filter(row => {
-        // فلتر القانونية
         const rawLaw = (row['القانوني'] || '').toString().trim();
         const normLaw = normalizeText(rawLaw);
         if (selectedLaws.length > 0) {
@@ -391,7 +409,6 @@ function generateSummaryByCenter() {
             if (!matchLaw) return false;
         }
 
-        // فلتر حالة المعاينة
         const inspect = (row['حالة المعاينة'] || '').toString().trim();
         if (selectedInspects.length > 0) {
             let matchInspect = false;
@@ -400,7 +417,6 @@ function generateSummaryByCenter() {
             if (!matchInspect) return false;
         }
 
-        // فلتر حالة الرد
         let status = (row[' حالة المتغير'] || '').toString().trim();
         const isReplied = status.includes('المركز الرئيسي');
         if (selectedReplies.length > 0) {
@@ -409,16 +425,13 @@ function generateSummaryByCenter() {
             if (selectedReplies.includes('لم يتم الرد') && !isReplied) matchReply = true;
             if (!matchReply) return false;
         }
-
         return true;
     });
 
     lastFilteredRows = filtered_details;
 
-    // حساب التفاصيل من الصفوف المفلترة بالكامل
     const summary = {};
     let maxGovReplyDate = null;
-
     filtered_details.forEach(row => {
         let dateVal = row['تاريخ رد المحافظة'] || '';
         if (dateVal) {
@@ -435,7 +448,6 @@ function generateSummaryByCenter() {
     filtered_details.forEach(row => {
         const keys = Object.keys(row);
         const مركز = row[keys[23]] || 'غير محدد';
-
         if (!summary[مركز]) {
             summary[مركز] = {
                 تم_الرد: 0, لم_يتم_الرد: 0, تم_المعاينة: 0,
@@ -444,10 +456,8 @@ function generateSummaryByCenter() {
         }
 
         let status = (row[' حالة المتغير'] || '').toString().trim();
-
         if (status.includes('المركز الرئيسي')) {
             summary[مركز].تم_الرد += 1;
-
             let govReplyDateStr = null;
             let d = row['تاريخ رد المحافظة'];
             if (d) {
@@ -474,7 +484,6 @@ function generateSummaryByCenter() {
         }
     });
 
-    // عرض الجدول
     const rowsArray = [];
     for (const مركز in totalByCenter) {
         const total = totalByCenter[مركز];
@@ -482,7 +491,6 @@ function generateSummaryByCenter() {
             تم_الرد: 0, لم_يتم_الرد: 0, تم_المعاينة: 0,
             قانوني: 0, غير_قانوني: 0, قانوني_مؤقت: 0, أخرى: 0, انجاز_اليوم: 0
         };
-
         const انجازNumeric = total > 0 ? (s.تم_الرد / total * 100) : 0;
         const انجاز = انجازNumeric.toFixed(2);
         const نسبة_غير_قانوني = s.تم_الرد > 0 ? (s.غير_قانوني / s.تم_الرد * 100).toFixed(2) : '0.00';
@@ -508,21 +516,19 @@ function generateSummaryByCenter() {
     rowsArray.sort((a,b) => parseFloat(b.dataset.انجاز) - parseFloat(a.dataset.انجاز));
     rowsArray.forEach(tr => summaryTableBody.appendChild(tr));
 
-    // الإجمالي الكلي
     let grandTotal = 0, grandReplied = 0, grandNotReplied = 0, grandInspected = 0;
     let grandLegal = 0, grandIllegal = 0, grandTemp = 0, grandOther = 0, grandToday = 0;
-
     for (const center in totalByCenter) {
         grandTotal += totalByCenter[center];
         const s = summary[center] || {};
-        grandReplied    += s.تم_الرد       || 0;
-        grandNotReplied += s.لم_يتم_الرد   || 0;
-        grandInspected  += s.تم_المعاينة   || 0;
-        grandLegal      += s.قانوني        || 0;
-        grandIllegal    += s.غير_قانوني    || 0;
-        grandTemp       += s.قانوني_مؤقت   || 0;
-        grandOther      += s.أخرى          || 0;
-        grandToday      += s.انجاز_اليوم   || 0;
+        grandReplied += s.تم_الرد || 0;
+        grandNotReplied += s.لم_يتم_الرد || 0;
+        grandInspected += s.تم_المعاينة || 0;
+        grandLegal += s.قانوني || 0;
+        grandIllegal += s.غير_قانوني || 0;
+        grandTemp += s.قانوني_مؤقت || 0;
+        grandOther += s.أخرى || 0;
+        grandToday += s.انجاز_اليوم || 0;
     }
 
     const grandCompletion = grandTotal > 0 ? (grandReplied / grandTotal * 100).toFixed(2) : '0.00';
@@ -568,7 +574,6 @@ function exportDetailedToExcel() {
 
 function exportToKML() {
     if (lastFilteredRows.length === 0) return showMessage('لا توجد بيانات مفلترة للتصدير إلى KML', 'error');
-
     let latCol = null, lonCol = null;
     if (lastFilteredRows.length > 0) {
         const keys = Object.keys(lastFilteredRows[0]);
@@ -601,7 +606,6 @@ function exportToKML() {
                 <styleUrl>#pinStyle</styleUrl>
                 <Point><coordinates>${lon},${lat},0</coordinates></Point>
                 <ExtendedData>`;
-
         Object.entries(row).forEach(([key, value]) => {
             if (value == null || value === '') return;
             let safeKey = key.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') || `field_${i}`;
@@ -612,7 +616,6 @@ function exportToKML() {
                 .replace(/"/g, '&quot;');
             kml += `<Data name="${safeKey}"><displayName>${key.trim()}</displayName><value>${safeValue}</value></Data>`;
         });
-
         kml += `</ExtendedData></Placemark>`;
     });
 
