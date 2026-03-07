@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -351,6 +352,12 @@
                 style="background:linear-gradient(135deg,#2ecc71 0%,#27ae60 100%);">تصدير إلى KML</button>
             <button class="btn" id="printBtn" disabled
                 style="background:linear-gradient(135deg,#f39c12 0%,#e67e22 100%);">طباعة التقرير</button>
+
+        </div>
+
+        <div id="diagBox" style="display:none; margin:20px 0; padding:20px; background:#fff8e1; border:2px solid #f39c12; border-radius:12px; direction:ltr;">
+            <h3 style="color:#e67e22; margin-bottom:12px; direction:rtl;">📋 أسماء الأعمدة الموجودة في الملف</h3>
+            <div id="diagContent" style="font-family:monospace; font-size:13px; line-height:1.8;"></div>
         </div>
 
         <div class="message" id="message"></div>
@@ -508,6 +515,25 @@
             return $(selectElement).val() || [];
         }
 
+        // دالة مساعدة للبحث في الصف عن قيمة عمود بعدة أسماء محتملة
+        function getColValue(row, candidates) {
+            for (const key of candidates) {
+                if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                    return row[key];
+                }
+            }
+            // بحث إضافي بالتطابق الجزئي في حال وجود مسافات زائدة أو اختلاف طفيف
+            const rowKeys = Object.keys(row);
+            for (const candidate of candidates) {
+                const normCandidate = normalizeText(candidate);
+                const found = rowKeys.find(k => normalizeText(k) === normCandidate);
+                if (found && row[found] !== undefined && row[found] !== null && row[found] !== '') {
+                    return row[found];
+                }
+            }
+            return null;
+        }
+
         // ------------------------------------------------------------------
         // قراءة الملف
         // ------------------------------------------------------------------
@@ -559,6 +585,7 @@
 
                     showMessage(`تم تحميل ${dataRows.length} سجل`, 'success');
                     processBtn.disabled = false;
+                    document.getElementById('diagBtn').disabled = false;
                 } catch (err) {
                     showMessage('خطأ في قراءة الملف: ' + err.message, 'error');
                     processBtn.disabled = true;
@@ -889,34 +916,34 @@
                 }
 
                 return {
-                    "رقم التقرير": row['رقم التقرير'] || row['Batch ID'] || '',
-                    "مسلسل التغير": row['رقم المتغير'] || row['رقم المتغير '] || row['Change ID'] || '',
-                    "دائره العرض": row['خط العرض'] || row['Latitude'] || '',
-                    "خط الطول": row['خط الطول'] || row['Longitude'] || '',
-                    "المركز": row[keys[23]] || row['اسم المركز'] || row['المركز'] || '',
-                    "الشياخه": row['الشياخة'] || row['اسم الشياخة'] || 'no value',
-                    "نوع المتغير": row['نوع المتغير'] || row['نوع التغير'] || 'no value',
-                    "نوع الاملاك": row['نوع الأملاك'] || row['نوع الملكية'] || 'no value',
-                    "نوع المحضر": row['نوع المحضر'] || 'no value',
-                    "القانونيه": row['القانوني'] || row['القانونية'] || 'no value',
-                    "الإزالة": row['حالة الإزالة'] || row['الإزالة'] || 'no value',
-                    "تم الرد": replied,
-                    "لم يتم الرد": notReplied,
-                    "مساحه المتغير": row['مساحة المتغير'] || row['المساحة'] || 'no value',
-                    "اسم المهندس": row['اسم المهندس'] || 'no value',
-                    "الرقم القومي للمهندس": row['الرقم القومي للمهندس'] || 'no value',
-                    "اسم المواطن": row['اسم المواطن'] || row['اسم صاحب المتغير'] || 'no value',
-                    "الرقم القومي للمواطن": row['الرقم القومي للمواطن'] || row['الرقم القومي'] || 'no value',
-                    "جهة الولاية": row['جهة الولاية'] || 'no value',
-                    "تاريخ استقبال النقاط": receiveDate,
-                    "حالة المعاينة": row['حالة المعاينة'] || 'no value',
-                    "الحيز العمراني": row['الحيز العمراني'] || row['حيز عمراني'] || '',
-                    "تاريخ رد المركز": formatDateForExcel(row['تاريخ رد المركز'] || row['تاريخ الرد']),
-                    "ملاحظة المركز": row['ملاحظة المركز'] || row['ملاحظات المركز'] || 'no value',
-                    "ملاحظة المحافظة على الرد": row['ملاحظة المحافظة'] || row['ملاحظات المحافظة'] || 'no value',
-                    "تعليق المركز الرئيسي": row['ملاحظات'] || row['تعليقات'] || 'no value',
-                    "تاريخ رد المحافظة": formatDateForExcel(row['تاريخ رد المحافظة']),
-                    "حالة الدراسة": status || 'no value'
+                    "رقم التقرير":              row['رقم التقرير'] || '',
+                    "مسلسل التغير":             row['رقم المتغير'] || '',
+                    "دائره العرض":              row['خط العرض'] || '',
+                    "خط الطول":                 row['خط الطول'] || '',
+                    "المركز":                   row['اسم المركز'] || row[keys[23]] || '',
+                    "الشياخه":                  row['اسم الشياخة'] || 'no value',
+                    "نوع المتغير":              row['نوع المتغير'] || 'no value',
+                    "نوع الاملاك":              row['الأملاك'] || 'no value',
+                    "نوع المحضر":               row['نوع الرد'] || 'no value',
+                    "القانونيه":                row['القانوني'] || 'no value',
+                    "الإزالة":                  row['حالة الإزالة'] || 'no value',
+                    "تم الرد":                  replied,
+                    "لم يتم الرد":              notReplied,
+                    "مساحه المتغير":            row['مساحة المتغير'] || 'no value',
+                    "اسم المهندس":              row['اسم المهندس'] || 'no value',
+                    "الرقم القومي للمهندس":     row['الرقم القومي الفني'] || 'no value',
+                    "اسم المواطن":              row['اسم المواطن'] || 'no value',
+                    "الرقم القومي للمواطن":     row['الرقم القومى للمواطن'] || 'no value',
+                    "جهة الولاية":              row['نوع الولاية'] || 'no value',
+                    "تاريخ استقبال النقاط":     receiveDate,
+                    "حالة المعاينة":            row['حالة المعاينة'] || 'no value',
+                    "الحيز العمراني":           row['الحيز العمرانى'] || '',
+                    "تاريخ رد المركز":          formatDateForExcel(row['تاريخ رد المركز المحلى']),
+                    "ملاحظة المركز":            row['ملاحظات المركز المحلى'] || 'no value',
+                    "ملاحظة المحافظة على الرد": row[' رد المحافظة'] || 'no value',
+                    "تعليق المركز الرئيسي":     row['تعليق إعادة دراسة المركز الرئيسي'] || 'no value',
+                    "تاريخ رد المحافظة":        formatDateForExcel(row['تاريخ رد المحافظة']),
+                    "حالة الدراسة":             status || 'no value'
                 };
             });
 
@@ -1008,11 +1035,26 @@
         exportSummaryBtn.onclick = exportSummaryToExcel;
         exportDetailedBtn.onclick = exportDetailedToExcel;
         exportKmlBtn.onclick = exportToKML;
+
+        document.getElementById('diagBtn').onclick = () => {
+            if (dataRows.length === 0) return;
+            const keys = Object.keys(dataRows[0]);
+            const box = document.getElementById('diagBox');
+            const content = document.getElementById('diagContent');
+            // عرض كل عمود برقمه واسمه وعينة من قيمته
+            content.innerHTML = keys.map((k, i) => {
+                const sampleVal = dataRows.slice(0, 5).map(r => r[k]).find(v => v !== '' && v !== null && v !== undefined);
+                const display = sampleVal !== undefined ? String(sampleVal).substring(0, 40) : '—';
+                return `<div style="padding:3px 0; border-bottom:1px solid #eee;">
+                    <span style="color:#999; min-width:30px; display:inline-block;">[${i}]</span>
+                    <span style="color:#c0392b; font-weight:bold;">"${k}"</span>
+                    <span style="color:#666; margin-right:10px;">← مثال: ${display}</span>
+                </div>`;
+            }).join('');
+            box.style.display = 'block';
+            box.scrollIntoView({ behavior: 'smooth' });
+        };
     </script>
 </body>
 
 </html>
-
-
-
-
