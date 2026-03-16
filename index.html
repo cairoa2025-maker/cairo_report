@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -457,18 +458,51 @@
                     });
                 }
 
-                // معالجة المناطق الجغرافية
-                if (selected.includes('__الجنوبية__')) {
-                    centersToAdd.push(...STRUCTURE.الجنوبية);
-                }
-                if (selected.includes('__الشرقية__')) {
-                    centersToAdd.push(...STRUCTURE.الشرقية);
-                }
-                if (selected.includes('__الشمالية__')) {
-                    centersToAdd.push(...STRUCTURE.الشمالية);
-                }
-                if (selected.includes('__الغربية__')) {
-                    centersToAdd.push(...STRUCTURE.الغربية);
+        // معالجة المناطق الجغرافية بمطابقة ذكية
+                let regionsToProcess = [];
+                if (selected.includes('__الجنوبية__')) regionsToProcess.push(STRUCTURE.الجنوبية);
+                if (selected.includes('__الشرقية__')) regionsToProcess.push(STRUCTURE.الشرقية);
+                if (selected.includes('__الشمالية__')) regionsToProcess.push(STRUCTURE.الشمالية);
+                if (selected.includes('__الغربية__')) regionsToProcess.push(STRUCTURE.الغربية);
+
+                if (regionsToProcess.length > 0) {
+                    const currentAllCenters = [...allCenters];
+                    regionsToProcess.forEach(region => {
+                        region.forEach(ahy => {
+                            // محاولة إيجاد مطابقة في الأحياء المحملة
+                            const normAhy = normalizeText(ahy);
+                            let matchedCenter = null;
+                            
+                            // البحث الأول: مطابقة تامة
+                            matchedCenter = currentAllCenters.find(c => normalizeText(c) === normAhy);
+                            
+                            // البحث الثاني: تطابق جزئي
+                            if (!matchedCenter) {
+                                matchedCenter = currentAllCenters.find(c => {
+                                    const normCenter = normalizeText(c);
+                                    return normCenter.includes(normAhy) || normAhy.includes(normCenter);
+                                });
+                            }
+                            
+                            // البحث الثالث: البحث عن الكلمة الرئيسية
+                            if (!matchedCenter) {
+                                const keywords = normAhy.split(' ').filter(w => w.length > 1);
+                                matchedCenter = currentAllCenters.find(c => {
+                                    const normCenter = normalizeText(c);
+                                    return keywords.some(kw => normCenter.includes(kw));
+                                });
+                            }
+                            
+                            if (matchedCenter && !centersToAdd.includes(matchedCenter)) {
+                                centersToAdd.push(matchedCenter);
+                            }
+                        });
+                    });
+                    
+                    // طباعة للتصحيح (يمكن حذفها لاحقاً)
+                    if (centersToAdd.length === 0 && regionsToProcess.length > 0) {
+                        console.log('لم يتم العثور على مطابقات. البيانات المتاحة:', currentAllCenters);
+                    }
                 }
 
                 if (centersToAdd.length > 0) {
