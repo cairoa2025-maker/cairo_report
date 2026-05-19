@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -597,7 +598,7 @@
 
                     showMessage(`تم تحميل ${dataRows.length} سجل`, 'success');
 
-                    processBtn.disabled = false;
+                    // processBtn.disabled = false; // تم تعطيله حسب طلب المستخدم - يتطلب ضبط الفلاتر أولاً
                     // لينك الموجه 28 يبقى مفعل دايماً بعد تحميل ملف (أو يمكنك إزالة disabled من HTML مباشرة)
                     linkBtn.disabled = false;
                 } catch (err) {
